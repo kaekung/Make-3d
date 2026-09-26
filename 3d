@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MakerStudio 3D — Lithophane · Name Tag · Clicker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Kanit:wght@400;600&family=Noto+Sans+Thai:wght@400;500;600;800&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+/* ---------- Design tokens ---------- */
+:root{
+  --bg:#eef2f8; --bg-2:#e2e8f2; --panel:#ffffff; --panel-2:#f5f7fb; --inset:#eaf0f8;
+  --text:#0f172a; --muted:#5b6b85; --border:#d8e0ec;
+  --accent:#4f46e5; --accent-2:#06b6d4; --accent-ink:#ffffff;
+  --ok:#0f9d68; --warn:#c2860a; --danger:#dc2743;
+  --shadow:0 12px 34px rgba(15,23,42,.10); --shadow-sm:0 2px 8px rgba(15,23,42,.07);
+  --r:14px; --r-sm:10px; --vp-1:#dfe7f2; --vp-2:#f7f9fc;
+}
+html[data-theme="dark"]{
+  /* FIX #3: ลบค่าสีที่ไม่ valid ออก (เดิมคือ --inset:#0c1striped;) */
+  --bg:#070b16; --bg-2:#0c1222; --panel:#111a2e; --panel-2:#16203a;
+  --inset:#0d1526; --text:#e9eefb; --muted:#93a3c0; --border:#233252;
+  --accent:#6d6bf6; --accent-2:#22d3ee; --accent-ink:#ffffff;
+  --ok:#34d399; --warn:#fbbf24; --danger:#fb7185;
+  --shadow:0 18px 44px rgba(0,0,0,.45); --shadow-sm:0 2px 10px rgba(0,0,0,.35);
+  --vp-1:#0a1020; --vp-2:#131d33;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"Noto Sans Thai","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.5; overflow:hidden;
+  transition:background .25s ease,color .25s ease;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- Layout ---------- */
+.app{display:flex;flex-direction:column;height:100dvh}
+header.top{
+  display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:var(--panel);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm);z-index:20;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px;white-space:nowrap}
+.logo{
+  width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:17px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 6px 16px rgba(79,70,229,.35)
+}
+.brand small{display:block;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.3px}
+.modes{display:flex;gap:4px;background:var(--panel-2);padding:4px;border-radius:12px;border:1px solid var(--border);flex-wrap:wrap}
+.mode-btn{
+  border:0;background:transparent;padding:8px 14px;border-radius:9px;cursor:pointer;color:var(--muted);
+  font-weight:600;display:flex;align-items:center;gap:7px;transition:.18s;white-space:nowrap
+}
+.mode-btn:hover{color:var(--text);background:var(--inset)}
+.mode-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);box-shadow:0 4px 14px rgba(79,70,229,.32)}
+.spacer{flex:1}
+.icon-btn{
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);width:38px;height:38px;border-radius:11px;
+  cursor:pointer;display:grid;place-items:center;transition:.18s;font-size:15px
+}
+.icon-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.seg{display:flex;border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--panel-2)}
+.seg button{border:0;background:transparent;padding:9px 12px;cursor:pointer;font-weight:700;font-size:12px;color:var(--muted);transition:.18s}
+.seg button.active{background:var(--accent);color:var(--accent-ink)}
+
+main{flex:1;display:grid;grid-template-columns:352px 1fr;min-height:0}
+aside{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.viewport{position:relative;background:radial-gradient(120% 120% at 50% 0%,var(--vp-2),var(--vp-1));min-width:0}
+#canvasHost{position:absolute;inset:0}
+#canvasHost canvas{display:block;width:100%;height:100%;outline:none}
+
+/* ---------- Cards / controls ---------- */
+.card{background:var(--panel-2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card>summary{
+  list-style:none;cursor:pointer;padding:11px 14px;font-weight:700;display:flex;align-items:center;gap:9px;user-select:none
+}
+.card>summary::-webkit-details-marker{display:none}
+.card>summary::after{content:"▾";margin-left:auto;color:var(--muted);transition:.2s}
+.card[open]>summary::after{transform:rotate(180deg)}
+.card .body{padding:4px 14px 14px;display:flex;flex-direction:column;gap:11px;border-top:1px solid var(--border)}
+.row{display:flex;align-items:center;gap:10px}
+.row>label{flex:0 0 42%;color:var(--muted);font-size:12.5px;font-weight:500}
+.row .ctl{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+input[type=text],input[type=number],select,textarea{
+  width:100%;background:var(--inset);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:8px 10px;transition:.15s;min-width:0
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.16)}
+input[type=range]{width:100%;accent-color:var(--accent);background:transparent}
+.val{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);min-width:48px;text-align:right}
+.switch{position:relative;width:44px;height:25px;flex:0 0 44px}
+.switch input{opacity:0;width:100%;height:100%;margin:0;cursor:pointer;position:relative;z-index:2}
+.switch i{position:absolute;inset:0;background:var(--border);border-radius:99px;transition:.2s;pointer-events:none}
+.switch i::after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.switch input:checked+i{background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+.switch input:checked+i::after{transform:translateX(19px)}
+.btn{
+  border:1px solid var(--border);background:var(--panel);border-radius:var(--r-sm);padding:10px 14px;cursor:pointer;
+  font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.18s;width:100%
+}
+.btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border-color:transparent;color:var(--accent-ink);box-shadow:0 8px 22px rgba(79,70,229,.3)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{font-size:11.5px;color:var(--muted);line-height:1.45}
+.drop{
+  border:2px dashed var(--border);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer;transition:.2s;background:var(--inset)
+}
+.drop:hover,.drop.over{border-color:var(--accent);background:rgba(79,70,229,.08)}
+.drop .big{font-size:26px;line-height:1}
+.thumb{display:flex;gap:10px;align-items:center;margin-top:8px}
+.thumb img{width:60px;height:60px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
+.thumb .meta{font-size:11.5px;color:var(--muted);word-break:break-all;flex:1}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--inset);border:1px solid var(--border);color:var(--muted)}
+.badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.badge.err{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
+
+/* ---------- Viewport overlays ---------- */
+.vp-tools{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:8px;z-index:5}
+.vp-tools .icon-btn{background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(10px)}
+.vp-tools .icon-btn.on{border-color:var(--accent);color:var(--accent)}
+.stats{
+  position:absolute;left:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap;z-index:5;
+  background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(10px);
+  border:1px solid var(--border);border-radius:12px;padding:8px 12px;font-size:12px;box-shadow:var(--shadow-sm)
+}
+.stats b{font-variant-numeric:tabular-nums}
+.loading{position:absolute;inset:0;display:none;place-items:center;background:color-mix(in srgb,var(--bg) 60%,transparent);backdrop-filter:blur(3px);z-index:9}
+.loading.on{display:grid}
+.spin{width:38px;height:38px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:9px;z-index:100;max-width:min(380px,90vw)}
+.toast{
+  background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:12px;
+  padding:11px 14px;box-shadow:var(--shadow);animation:in .25s ease;font-size:13px
+}
+.toast.err{border-left-color:var(--danger)} .toast.ok{border-left-color:var(--ok)} .toast.warn{border-left-color:var(--warn)}
+@keyframes in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+#fatal{position:fixed;inset:0;display:none;place-items:center;background:var(--bg);z-index:999;padding:24px;text-align:center}
+#fatal.on{display:grid}
+.mobile-toggle{display:none}
+@media(max-width:920px){
+  main{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  aside{order:2;max-height:46dvh;border-right:0;border-top:1px solid var(--border)}
+  .viewport{order:1}
+  .brand small{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">◐</div>
+      <div>MakerStudio 3D<small data-i18n="tagline">Lithophane · ป้ายชื่อ · Clicker</small></div>
+    </div>
+
+    <nav class="modes" id="modes">
+      <button class="mode-btn active" data-mode="litho">🖼 <span data-i18n="m.litho">Lithophane</span></button>
+      <button class="mode-btn" data-mode="tag">🏷 <span data-i18n="m.tag">ป้ายชื่อ</span></button>
+      <button class="mode-btn" data-mode="clicker">🔘 <span data-i18n="m.clicker">Clicker</span></button>
+      <button class="mode-btn" data-mode="combo">✨ <span data-i18n="m.combo">รวมร่าง</span></button>
+    </nav>
+
+    <div class="spacer"></div>
+    <div class="seg" id="langSeg" title="Language / ภาษา">
+      <button data-lang="th" class="active">ไทย</button><button data-lang="en">EN</button>
+    </div>
+    <button class="icon-btn" id="themeBtn" title="Dark / Light">🌙</button>
+  </header>
+
+  <main>
+    <aside id="sidebar">
+      <!-- ===== IMAGE (litho + combo) ===== -->
+      <details class="card" data-for="litho combo" open>
+        <summary>🖼 <span data-i18n="s.image">รูปภาพต้นฉบับ</span></summary>
+        <div class="body">
+          <div class="drop" id="drop">
+            <div class="big">📤</div>
+            <div style="font-weight:700;margin-top:6px" data-i18n="img.drop">ลากรูปมาวาง หรือคลิกเพื่อเลือก</div>
+            <div class="hint" data-i18n="img.hint">JPG / PNG / WebP — แนะนำภาพคอนทราสต์ชัด</div>
+            <input type="file" id="file" accept="image/*" hidden>
+          </div>
+          <div class="thumb" id="thumb" hidden><img id="thumbImg" alt=""><div class="meta" id="thumbMeta"></div></div>
+          <div class="row"><label data-i18n="img.gamma">Gamma</label><div class="ctl"><input type="range" id="gamma" min="0.4" max="2.5" step="0.05" value="1"><span class="val" id="gammaV">1.00</span></div></div>
+          <div class="row"><label data-i18n="img.bright">ความสว่าง</label><div class="ctl"><input type="range" id="bright" min="-100" max="100" step="1" value="0"><span class="val" id="brightV">0</span></div></div>
+          <div class="row"><label data-i18n="img.contrast">คอนทราสต์</label><div class="ctl"><input type="range" id="contrast" min="-100" max="100" step="1" value="0"><span class="val" id="contrastV">0</span></div></div>
+          <div class="row"><label data-i18n="img.invert">กลับสี (Negative)</label><div class="ctl"><span class="switch"><input type="checkbox" id="invert"><i></i></span></div></div>
+          <div class="row"><label data-i18n="img.mirror">พลิกซ้าย-ขวา</label><div class="ctl"><span class="switch"><input type="checkbox" id="mirror"><i></i></span></div></div>
+        </div>
+      </details>
+
+      <!-- ===== LITHOPHANE ===== -->
+      <details class="card" data-for="litho" open>
+        <summary>⚙️ <span data-i18n="s.litho">ตั้งค่า Lithophane</span></summary>
+        <div class="body">
+          <div class="row"><label data-i18n="l.shape">รูปทรง</label><div class="ctl">
+            <select id="lShape"><option value="flat" data-i18n="l.flat">แผ่นแบน</option><option value="curved" data-i18n="l.curved">โค้ง (ตั้งได้)</option></select></div></div>
+          <div class="row" data-when="lShape=curved"><label data-i18n="l.radius">รัศมีความโค้ง (mm)</label><div class="ctl"><input type="number" id="lRadius" value="45" min="15" max="300" step="1"></div></div>
+          <div class="row"><label data-i18n="l.width">กว้าง (mm)</label><div class="ctl"><input type="number" id="lW" value="100" min="10" max="300" step="1"></div></div>
+          <div class="row"><label data-i18n="l.height">สูง (mm)</label><div class="ctl"><input type="number" id="lH" value="75" min="10" max="300" step="1"><button class="btn" id="lFit" style="width:auto;padding:8px 10px" data-i18n="l.fit">พอดีภาพ</button></div></div>
+          <div class="row"><label data-i18n="l.min">หนาสุดสว่าง (mm)</label><div class="ctl"><input type="number" id="lMin" value="0.8" min="0.2" max="3" step="0.1"></div></div>
+          <div class="row"><label data-i18n="l.max">หนาสุดมืด (mm)</label><div class="ctl"><input type="number" id="lMax" value="3" min="0.6" max="8" step="0.1"></div></div>
+          <div class="row"><label data-i18n="l.frame">ขอบเฟรม (mm)</label><div class="ctl"><input type="number" id="lFrame" value="2.5" min="0" max="15" step="0.5"></div></div>
+          <div class="row"><label data-i18n="l.hole">รูแขวน</label><div class="ctl"><span class="switch"><input type="checkbox" id="lHole"><i></i></span></div></div>
+          <div class="row"><label data-i18n="l.res">ความละเอียด (px/mm)</label><div class="ctl"><input type="range" id="lRes" min="3" max="14" step="1" value="8"><span class="val" id="lResV">8</span></div></div>
+        </div>
+      </details>
+
+      <!-- ===== TEXT (tag + combo + clicker ear) ===== -->
+      <details class="card" data-for="tag combo clicker" open>
+        <summary>🔤 <span data-i18n="s.text">ข้อความ</span></summary>
+        <div class="body">
+          <div class="row"><label data-i18n="t.l1">บรรทัดที่ 1</label><div class="ctl"><input type="text" id="tL1" value="สมชาย ใจดี" maxlength="40"></div></div>
+          <div class="row"><label data-i18n="t.l2">บรรทัดที่ 2</label><div class="ctl"><input type="text" id="tL2" value="Maker Studio" maxlength="40"></div></div>
+          <div class="row"><label data-i18n="t.font">ฟอนต์</label><div class="ctl"><select id="tFont">
+            <option value="Noto Sans Thai">Noto Sans Thai</option><option value="Sarabun">Sarabun</option>
+            <option value="Kanit">Kanit</option><option value="Inter">Inter</option></select></div></div>
+          <div class="row"><label data-i18n="t.weight">น้ำหนักฟอนต์</label><div class="ctl"><select id="tWeight"><option value="400">Regular</option><option value="600" selected>SemiBold</option><option value="800">ExtraBold</option></select></div></div>
+          <div class="row"><label data-i18n="t.size">ขนาดตัวอักษร (mm)</label><div class="ctl"><input type="number" id="tSize" value="8" min="2" max="40" step="0.5"></div></div>
+          <div class="row"><label data-i18n="t.align">จัดวาง</label><div class="ctl"><select id="tAlign">
+            <option value="center" data-i18n="t.center">กึ่งกลาง</option><option value="left" data-i18n="t.left">ชิดซ้าย</option><option value="right" data-i18n="t.right">ชิดขวา</option></select></div></div>
+          <div class="row"><label data-i18n="t.style">ลักษณะ</label><div class="ctl"><select id="tStyle">
+            <option value="raised" data-i18n="t.raised">ตัวนูน</option><option value="engraved" data-i18n="t.engraved">เซาะร่อง</option></select></div></div>
+          <div class="row"><label data-i18n="t.depth">ความนูน/ลึก (mm)</label><div class="ctl"><input type="number" id="tDepth" value="0.8" min="0.2" max="3" step="0.1"></div></div>
+        </div>
+      </details>
+
+      <!-- ===== NAME TAG PLATE ===== -->
+      <details class="card" data-for="tag" open>
+        <summary>🏷 <span data-i18n="s.plate">แผ่นป้าย</span></summary>
+        <div class="body">
+          <div class="grid2">
+            <div class="row"><label style="flex:0 0 50%" data-i18n="p.w">กว้าง</label><div class="ctl"><input type="number" id="pW" value="75" min="15" max="250" step="1"></div></div>
+            <div class="row"><label style="flex:0 0 50%" data-i18n="p.h">สูง</label><div class="ctl"><input type="number" id="pH" value="28" min="10" max="250" step="1"></div></div>
+          </div>
+          <button class="btn ghost" id="pAuto" data-i18n="p.auto">📐 ปรับขนาดอัตโนมัติจากข้อความ</button>
+          <div class="row"><label data-i18n="p.thick">ความหนา (mm)</label><div class="ctl"><input type="number" id="pT" value="2.4" min="0.8" max="10" step="0.2"></div></div>
+          <div class="row"><label data-i18n="p.radius">มุมโค้ง (mm)</label><div class="ctl"><input type="number" id="pR" value="4" min="0" max="30" step="0.5"></div></div>
+          <div class="row"><label data-i18n="p.border">กรอบนูน</label><div class="ctl"><span class="switch"><input type="checkbox" id="pBorder" checked><i></i></span></div></div>
+          <div class="row" data-when="pBorder=1"><label data-i18n="p.bw">ความกว้างกรอบ</label><div class="ctl"><input type="number" id="pBW" value="1.6" min="0.4" max="6" step="0.2"></div></div>
+          <div class="row"><label data-i18n="p.holepos">ตำแหน่งรู</label><div class="ctl"><select id="pHole">
+            <option value="none" data-i18n="p.none">ไม่มี</option><option value="left" data-i18n="p.left">ซ้าย</option><option value="top" data-i18n="p.top">บน</option></select></div></div>
+          <div class="row" data-when="pHole!=none"><label data-i18n="p.holedia">ขนาดรู (mm)</label><div class="ctl"><input type="number" id="pHD" value="3.5" min="1.5" max="12" step="0.5"></div></div>
+        </div>
+      </details>
+
+      <!-- ===== CLICKER ===== -->
+      <details class="card" data-for="clicker combo" open>
+        <summary>🔘 <span data-i18n="s.clicker">ตั้งค่า Clicker</span></summary>
+        <div class="body">
+          <div class="row"><label data-i18n="c.dia">เส้นผ่านศูนย์กลาง (mm)</label><div class="ctl"><input type="number" id="cDia" value="32" min="16" max="90" step="1"></div></div>
+          <div class="row"><label data-i18n="c.height">ความสูงตัวเรือน (mm)</label><div class="ctl"><input type="number" id="cH" value="14" min="6" max="45" step="1"></div></div>
+          <div class="row"><label data-i18n="c.wall">ความหนาผนัง (mm)</label><div class="ctl"><input type="number" id="cWall" value="2.4" min="1" max="6" step="0.2"></div></div>
+          <div class="row"><label data-i18n="c.btn">ขนาดปุ่ม (mm)</label><div class="ctl"><input type="number" id="cBtn" value="16" min="6" max="60" step="1"></div></div>
+          <div class="row"><label data-i18n="c.tol">ระยะเผื่อ (mm)</label><div class="ctl"><input type="number" id="cTol" value="0.3" min="0.05" max="1" step="0.05"></div></div>
+          <div class="row"><label data-i18n="c.dome">ปุ่มทรงโดม</label><div class="ctl"><span class="switch"><input type="checkbox" id="cDome" checked><i></i></span></div></div>
+          <div class="row" data-for-only="clicker"><label data-i18n="c.ear">หูป้ายชื่อ + รูคล้อง</label><div class="ctl"><span class="switch"><input type="checkbox" id="cEar" checked><i></i></span></div></div>
+          <div class="row"><label data-i18n="c.layout">การวางชิ้นงาน</label><div class="ctl"><select id="cLayout">
+            <option value="flat" data-i18n="c.flat">วางเรียงพร้อมพิมพ์</option><option value="asm" data-i18n="c.asm">ประกอบแล้ว (ดูตัวอย่าง)</option></select></div></div>
+          <div class="hint" data-i18n="c.note">ใช้สปริงจริง Ø6–8 mm หรือยางรัด เพื่อให้ปุ่มเด้งกลับ</div>
+        </div>
+      </details>
+
+      <!-- ===== COMBO ===== -->
+      <details class="card" data-for="combo" open>
+        <summary>✨ <span data-i18n="s.combo">จัดองค์ประกอบรวม</span></summary>
+        <div class="body">
+          <div class="grid2">
+            <div class="row"><label style="flex:0 0 50%" data-i18n="p.w">กว้าง</label><div class="ctl"><input type="number" id="kW" value="72" min="30" max="250" step="1"></div></div>
+            <div class="row"><label style="flex:0 0 50%" data-i18n="p.h">สูง</label><div class="ctl"><input type="number" id="kH" value="96" min="40" max="250" step="1"></div></div>
+          </div>
+          <div class="row"><label data-i18n="k.frame">ความกว้างเฟรม</label><div class="ctl"><input type="number" id="kFrame" value="5" min="2" max="20" step="0.5"></div></div>
+          <div class="row"><label data-i18n="k.strip">แถบชื่อสูง (mm)</label><div class="ctl"><input type="number" id="kStrip" value="18" min="8" max="60" step="1"></div></div>
+          <div class="row"><label data-i18n="k.hole">รูคล้องมุมบน</label><div class="ctl"><span class="switch"><input type="checkbox" id="kHole" checked><i></i></span></div></div>
+          <div class="row"><label data-i18n="k.clicker">แนบชิ้นส่วน Clicker</label><div class="ctl"><span class="switch"><input type="checkbox" id="kClicker" checked><i></i></span></div></div>
+        </div>
+      </details>
+
+      <!-- ===== EXPORT / DEBUG ===== -->
+      <details class="card" open>
+        <summary>💾 <span data-i18n="s.export">ส่งออก & ตรวจสอบ</span></summary>
+        <div class="body">
+          <button class="btn primary" id="btnSTL">⬇ <span data-i18n="e.stl">ดาวน์โหลด STL (Binary)</span></button>
+          <div class="grid2">
+            <button class="btn" id="btnRegen">🔄 <span data-i18n="e.regen">สร้างใหม่</span></button>
+            <button class="btn" id="btnTest">🧪 <span data-i18n="e.test">Self-test</span></button>
+          </div>
+          <div id="diag" class="hint"></div>
+        </div>
+      </details>
+      <div class="hint" style="text-align:center;padding-bottom:6px">1 หน่วย = 1 มิลลิเมตร · <span data-i18n="foot">ทำงานในเครื่องคุณทั้งหมด ไม่อัปโหลดรูปขึ้นเซิร์ฟเวอร์</span></div>
+    </aside>
+
+    <section class="viewport">
+      <div id="canvasHost"></div>
+      <div class="vp-tools">
+        <button class="icon-btn" id="vFit" title="Fit view">⤢</button>
+        <button class="icon-btn" id="vRotate" title="Auto-rotate">🔁</button>
+        <button class="icon-btn" id="vGrid" title="Grid">▦</button>
+        <button class="icon-btn" id="vWire" title="Wireframe">◈</button>
+        <button class="icon-btn" id="vLight" title="Backlight preview">💡</button>
+      </div>
+      <div class="stats" id="stats">
+        <span class="badge" id="bDim">—</span>
+        <span class="badge" id="bTri">—</span>
+        <span class="badge" id="bStatus" data-i18n="st.ready">พร้อมใช้งาน</span>
+      </div>
+      <div class="loading" id="loading"><div style="text-align:center"><div class="spin" style="margin:0 auto 10px"></div><div id="loadTxt" data-i18n="st.building">กำลังสร้างโมเดล…</div></div></div>
+    </section>
+  </main>
+</div>
+
+<div id="toasts"></div>
+<div id="fatal">
+  <div>
+    <div style="font-size:40px">⚠️</div>
+    <h2 data-i18n="fatal.t">โหลดไลบรารี 3D ไม่สำเร็จ</h2>
+    <p class="hint" data-i18n="fatal.d">กรุณาตรวจสอบอินเทอร์เน็ต (ต้องเข้าถึง unpkg.com ได้) แล้วรีเฟรชหน้าอีกครั้ง</p>
+    <button class="btn primary" style="width:auto;margin:0 auto" onclick="location.reload()">↻ Reload</button>
+  </div>
+</div>
+
+<script>
+/* ---------- Global guards ---------- */
+window.__READY__ = false;
+window.addEventListener('error', e => console.error('[global]', e.message));
+window.addEventListener('unhandledrejection', e => console.error('[promise]', e.reason));
+setTimeout(() => { if (!window.__READY__) document.getElementById('fatal').classList.add('on'); }, 12000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   0) UTIL
+   ============================================================ */
+const $  = (id) => document.getElementById(id);
+const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0 || 1e-6), 0, 1); return t * t * (3 - 2 * t); };
+
+function num(id, def, min, max) {
+  const el = $(id); if (!el) return def;
+  let v = parseFloat(el.value);
+  if (!isFinite(v)) v = def;
+  if (min !== undefined) v = clamp(v, min, max);
+  return v;
+}
+const bool = (id) => !!($(id) && $(id).checked);
+const str  = (id, def = '') => ($(id) ? String($(id).value ?? def) : def);
+
+function toast(msg, kind = '') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind; t.textContent = msg;
+  $('toasts').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(24px)'; t.style.transition = '.3s'; }, 3200);
+  setTimeout(() => t.remove(), 3600);
+}
+
+/* ============================================================
+   1) i18n
+   ============================================================ */
+const I18N = {
+  th: {
+    tagline:'Lithophane · ป้ายชื่อ · Clicker', 'm.litho':'Lithophane','m.tag':'ป้ายชื่อ','m.clicker':'Clicker','m.combo':'รวมร่าง',
+    's.image':'รูปภาพต้นฉบับ','img.drop':'ลากรูปมาวาง หรือคลิกเพื่อเลือก','img.hint':'JPG / PNG / WebP — แนะนำภาพคอนทราสต์ชัด',
+    'img.gamma':'Gamma','img.bright':'ความสว่าง','img.contrast':'คอนทราสต์','img.invert':'กลับสี (Negative)','img.mirror':'พลิกซ้าย-ขวา',
+    's.litho':'ตั้งค่า Lithophane','l.shape':'รูปทรง','l.flat':'แผ่นแบน','l.curved':'โค้ง (ตั้งได้)','l.radius':'รัศมีความโค้ง (mm)',
+    'l.width':'กว้าง (mm)','l.height':'สูง (mm)','l.fit':'พอดีภาพ','l.min':'หนาสุดที่สว่าง (mm)','l.max':'หนาสุดที่มืด (mm)',
+    'l.frame':'ขอบเฟรม (mm)','l.hole':'รูแขวน','l.res':'ความละเอียด (px/mm)',
+    's.text':'ข้อความ','t.l1':'บรรทัดที่ 1','t.l2':'บรรทัดที่ 2','t.font':'ฟอนต์','t.weight':'น้ำหนักฟอนต์','t.size':'ขนาดตัวอักษร (mm)',
+    't.align':'จัดวาง','t.center':'กึ่งกลาง','t.left':'ชิดซ้าย','t.right':'ชิดขวา','t.style':'ลักษณะ','t.raised':'ตัวนูน','t.engraved':'เซาะร่อง','t.depth':'ความนูน/ลึก (mm)',
+    's.plate':'แผ่นป้าย','p.w':'กว้าง','p.h':'สูง','p.auto':'📐 ปรับขนาดอัตโนมัติจากข้อความ','p.thick':'ความหนา (mm)','p.radius':'มุมโค้ง (mm)',
+    'p.border':'กรอบนูน','p.bw':'ความกว้างกรอบ','p.holepos':'ตำแหน่งรู','p.none':'ไม่มี','p.left':'ซ้าย','p.top':'บน','p.holedia':'ขนาดรู (mm)',
+    's.clicker':'ตั้งค่า Clicker','c.dia':'เส้นผ่านศูนย์กลาง (mm)','c.height':'ความสูงตัวเรือน (mm)','c.wall':'ความหนาผนัง (mm)',
+    'c.btn':'ขนาดปุ่ม (mm)','c.tol':'ระยะเผื่อ (mm)','c.dome':'ปุ่มทรงโดม','c.ear':'หูป้ายชื่อ + รูคล้อง','c.layout':'การวางชิ้นงาน',
+    'c.flat':'วางเรียงพร้อมพิมพ์','c.asm':'ประกอบแล้ว (ดูตัวอย่าง)','c.note':'ใช้สปริงจริง Ø6–8 mm หรือยางรัด เพื่อให้ปุ่มเด้งกลับ',
+    's.combo':'จัดองค์ประกอบรวม','k.frame':'ความกว้างเฟรม','k.strip':'แถบชื่อสูง (mm)','k.hole':'รูคล้องมุมบน','k.clicker':'แนบชิ้นส่วน Clicker',
+    's.export':'ส่งออก & ตรวจสอบ','e.stl':'ดาวน์โหลด STL (Binary)','e.regen':'สร้างใหม่','e.test':'Self-test',
+    'st.ready':'พร้อมใช้งาน','st.building':'กำลังสร้างโมเดล…','foot':'ทำงานในเครื่องคุณทั้งหมด ไม่อัปโหลดรูปขึ้นเซิร์ฟเวอร์',
+    'fatal.t':'โหลดไลบรารี 3D ไม่สำเร็จ','fatal.d':'กรุณาตรวจสอบอินเทอร์เน็ต (ต้องเข้าถึง unpkg.com ได้) แล้วรีเฟรชหน้าอีกครั้ง',
+    'need.img':'กรุณาเลือกรูปภาพก่อน','ok.img':'โหลดรูปเรียบร้อย','ok.stl':'บันทึกไฟล์ STL แล้ว','ok.built':'สร้างโมเดลสำเร็จ',
+    'err.build':'สร้างโมเดลไม่สำเร็จ: ','err.img':'ไฟล์รูปไม่ถูกต้องหรือใหญ่เกินไป','warn.tri':'โมเดลมีรายละเอียดสูงมาก อาจช้า — ลดความละเอียดได้',
+    'test.pass':'ผ่านทั้งหมด','test.fail':'พบปัญหา'
+  },
+  en: {
+    tagline:'Lithophane · Name Tag · Clicker','m.litho':'Lithophane','m.tag':'Name Tag','m.clicker':'Clicker','m.combo':'Combo',
+    's.image':'Source Image','img.drop':'Drop an image or click to browse','img.hint':'JPG / PNG / WebP — high-contrast works best',
+    'img.gamma':'Gamma','img.bright':'Brightness','img.contrast':'Contrast','img.invert':'Invert (negative)','img.mirror':'Mirror horizontally',
+    's.litho':'Lithophane Settings','l.shape':'Shape','l.flat':'Flat panel','l.curved':'Curved (standing)','l.radius':'Curve radius (mm)',
+    'l.width':'Width (mm)','l.height':'Height (mm)','l.fit':'Fit image','l.min':'Min thickness (mm)','l.max':'Max thickness (mm)',
+    'l.frame':'Frame border (mm)','l.hole':'Hanging hole','l.res':'Resolution (px/mm)',
+    's.text':'Text','t.l1':'Line 1','t.l2':'Line 2','t.font':'Font','t.weight':'Font weight','t.size':'Text size (mm)',
+    't.align':'Alignment','t.center':'Center','t.left':'Left','t.right':'Right','t.style':'Style','t.raised':'Raised','t.engraved':'Engraved','t.depth':'Relief depth (mm)',
+    's.plate':'Tag Plate','p.w':'Width','p.h':'Height','p.auto':'📐 Auto-size from text','p.thick':'Thickness (mm)','p.radius':'Corner radius (mm)',
+    'p.border':'Raised border','p.bw':'Border width','p.holepos':'Hole position','p.none':'None','p.left':'Left','p.top':'Top','p.holedia':'Hole Ø (mm)',
+    's.clicker':'Clicker Settings','c.dia':'Outer diameter (mm)','c.height':'Body height (mm)','c.wall':'Wall thickness (mm)',
+    'c.btn':'Button Ø (mm)','c.tol':'Clearance (mm)','c.dome':'Domed button','c.ear':'Name-tag ear + keyring hole','c.layout':'Part layout',
+    'c.flat':'Laid out for printing','c.asm':'Assembled (preview)','c.note':'Add a real Ø6–8 mm spring or rubber band for the return action',
+    's.combo':'Combined Layout','k.frame':'Frame width','k.strip':'Name strip height (mm)','k.hole':'Top keyring hole','k.clicker':'Include clicker parts',
+    's.export':'Export & Diagnostics','e.stl':'Download STL (binary)','e.regen':'Rebuild','e.test':'Self-test',
+    'st.ready':'Ready','st.building':'Building model…','foot':'Runs fully in your browser — nothing is uploaded',
+    'fatal.t':'Failed to load the 3D library','fatal.d':'Check your connection (unpkg.com must be reachable) and reload.',
+    'need.img':'Please choose an image first','ok.img':'Image loaded','ok.stl':'STL file saved','ok.built':'Model built successfully',
+    'err.build':'Build failed: ','err.img':'Invalid or oversized image file','warn.tri':'Very high detail — consider lowering resolution',
+    'test.pass':'All checks passed','test.fail':'Issues found'
+  }
+};
+let LANG = localStorage.getItem('ms3d.lang') || 'th';
+const t = (k) => (I18N[LANG] && I18N[LANG][k]) || (I18N.th[k]) || k;
+
+function applyLang() {
+  document.documentElement.lang = LANG;
+  $('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $('#langSeg button').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
+  localStorage.setItem('ms3d.lang', LANG);
+}
+$('#langSeg button').forEach(b => b.onclick = () => { LANG = b.dataset.lang; applyLang(); });
+
+/* ---------- Theme ---------- */
+function applyTheme(mode) {
+  document.documentElement.dataset.theme = mode;
+  $('themeBtn').textContent = mode === 'dark' ? '🌙' : '☀️';
+  localStorage.setItem('ms3d.theme', mode);
+  if (typeof scene !== 'undefined' && scene) refreshSceneColors();
+}
+let theme = localStorage.getItem('ms3d.theme')
+  || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+$('themeBtn').onclick = () => applyTheme(theme = (theme === 'dark' ? 'light' : 'dark'));
+
+/* ============================================================
+   2) VIEWER
+   ============================================================ */
+const host = $('canvasHost');
+let renderer, scene, camera, controls, grid, modelGroup, backLight;
+let autoRotate = false, wireframe = false, backlitMode = false;
+
+function initViewer() {
+  if (!window.WebGLRenderingContext) throw new Error('WebGL not supported');
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(host.clientWidth || 800, host.clientHeight || 600);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  host.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(42, (host.clientWidth || 800) / (host.clientHeight || 600), 0.5, 4000);
+  camera.up.set(0, 0, 1);
+  camera.position.set(90, -130, 95);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.minDistance = 20; controls.maxDistance = 1200;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x223044, 1.1));
+  const k = new THREE.DirectionalLight(0xffffff, 1.6); k.position.set(70, -90, 130); scene.add(k);
+  const f = new THREE.DirectionalLight(0x9fc3ff, .55); f.position.set(-90, 70, 40); scene.add(f);
+  backLight = new THREE.DirectionalLight(0xfff6e0, 0); backLight.position.set(0, 220, 20); scene.add(backLight);
+
+  grid = new THREE.GridHelper(400, 40);
+  grid.rotation.x = Math.PI / 2;
+  scene.add(grid);
+
+  modelGroup = new THREE.Group(); scene.add(modelGroup);
+  refreshSceneColors();
+
+  new ResizeObserver(() => {
+    const w = host.clientWidth || 1, h = host.clientHeight || 1;
+    camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
+  }).observe(host);
+
+  renderer.setAnimationLoop(() => {
+    if (autoRotate && modelGroup) modelGroup.rotation.z += 0.004;
+    controls.update();
+    renderer.render(scene, camera);
+  });
+}
+function refreshSceneColors() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  scene.background = new THREE.Color(dark ? 0x0a1020 : 0xe9eef7);
+  if (grid) { grid.material.color.set(dark ? 0x27365a : 0xc3cfe2); grid.material.opacity = .85; grid.material.transparent = true; }
+}
+
+function fitView(pad = 1.65) {
+  if (!modelGroup.children.length) return;
+  const box = new THREE.Box3().setFromObject(modelGroup);
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const r = Math.max(size.x, size.y, size.z) * 0.5 || 20;
+  const d = (r / Math.sin((camera.fov * Math.PI / 180) / 2)) * pad;
+  camera.position.set(c.x + d * .55, c.y - d * .75, c.z + d * .55);
+  controls.target.copy(c); controls.update();
+}
+
+/* ============================================================
+   3) GEOMETRY CORE
+   ============================================================ */
+function heightFieldSolid(field, cols, rows, width, height, bottomZ) {
+  if (cols < 2 || rows < 2) throw new Error('grid too small');
+  const nT = cols * rows;
+  const pos = new Float32Array(nT * 2 * 3);
+  const dx = width / (cols - 1), dy = height / (rows - 1);
+  const x0 = -width / 2, y0 = -height / 2;
+
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const k = j * cols + i, x = x0 + i * dx, y = y0 + j * dy;
+      let z = field[k];
+      if (!isFinite(z)) z = bottomZ + 0.01;
+      if (z <= bottomZ + 1e-4) z = bottomZ + 0.01;
+      pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z;
+      const b = (nT + k) * 3;
+      pos[b] = x; pos[b + 1] = y; pos[b + 2] = bottomZ;
+    }
+  }
+
+  const qx = cols - 1, qy = rows - 1;
+  const idx = new Uint32Array(qx * qy * 12 + (qx * 2 + qy * 2) * 6);
+  let p = 0;
+  const T = (i, j) => j * cols + i;
+  const B = (i, j) => nT + j * cols + i;
+
+  for (let j = 0; j < qy; j++) {
+    for (let i = 0; i < qx; i++) {
+      const a = T(i, j), b = T(i + 1, j), c = T(i + 1, j + 1), d = T(i, j + 1);
+      idx[p++] = a; idx[p++] = b; idx[p++] = c;  idx[p++] = a; idx[p++] = c; idx[p++] = d;
+      const A = B(i, j), Bb = B(i + 1, j), C = B(i + 1, j + 1), D = B(i, j + 1);
+      idx[p++] = A; idx[p++] = C; idx[p++] = Bb; idx[p++] = A; idx[p++] = D; idx[p++] = C;
+    }
+  }
+  for (let i = 0; i < qx; i++) {
+    idx[p++] = T(i, 0); idx[p++] = B(i, 0); idx[p++] = B(i + 1, 0);
+    idx[p++] = T(i, 0); idx[p++] = B(i + 1, 0); idx[p++] = T(i + 1, 0);
+  }
+  for (let i = 0; i < qx; i++) {
+    const j = rows - 1;
+    idx[p++] = T(i, j); idx[p++] = T(i + 1, j); idx[p++] = B(i + 1, j);
+    idx[p++] = T(i, j); idx[p++] = B(i + 1, j); idx[p++] = B(i, j);
+  }
+  for (let j = 0; j < qy; j++) {
+    idx[p++] = T(0, j); idx[p++] = B(0, j + 1); idx[p++] = B(0, j);
+    idx[p++] = T(0, j); idx[p++] = T(0, j + 1); idx[p++] = B(0, j + 1);
+  }
+  for (let j = 0; j < qy; j++) {
+    const i = cols - 1;
+    idx[p++] = T(i, j); idx[p++] = B(i, j); idx[p++] = B(i, j + 1);
+    idx[p++] = T(i, j); idx[p++] = B(i, j + 1); idx[p++] = T(i, j + 1);
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.computeVertexNormals();
+  g.computeBoundingBox();
+  return g;
+}
+
+function bendCylindrical(geom, width, height, radius) {
+  const p = geom.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const th = x / radius, r = radius + z;
+    p.setXYZ(i, r * Math.sin(th), r * Math.cos(th) - radius, y + height / 2);
+  }
+  p.needsUpdate = true;
+  geom.computeVertexNormals(); geom.computeBoundingBox();
+  return geom;
+}
+
+/* ---------- Shape helpers ---------- */
+function roundedRectShape(w, h, r) {
+  r = clamp(r, 0, Math.min(w, h) / 2 - 0.01);
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y); if (r > 0) s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0, false);
+  s.lineTo(x + w, y + h - r); if (r > 0) s.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2, false);
+  s.lineTo(x + r, y + h); if (r > 0) s.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false);
+  s.lineTo(x, y + r); if (r > 0) s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false);
+  s.closePath();
+  return s;
+}
+function roundedRectPath(w, h, r, cx = 0, cy = 0) {
+  const s = roundedRectShape(w, h, r);
+  const pts = s.getPoints(48).map(pt => new THREE.Vector2(pt.x + cx, pt.y + cy));
+  const path = new THREE.Path(); path.setFromPoints(pts); return path;
+}
+function circlePath(r, cx = 0, cy = 0) {
+  const p = new THREE.Path(); p.absarc(cx, cy, Math.max(0.2, r), 0, Math.PI * 2, true); return p;
+}
+function extrude(shape, depth, z0 = 0, seg = 32) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.05, depth), bevelEnabled: false, curveSegments: seg, steps: 1 });
+  if (z0) g.translate(0, 0, z0);
+  g.computeVertexNormals(); return g;
+}
+function cylinder(r, h, z0, seg = 64) {
+  const g = new THREE.CylinderGeometry(r, r, Math.max(0.05, h), seg, 1, false);
+  g.rotateX(Math.PI / 2); g.translate(0, 0, z0 + h / 2); return g;
+}
+function dome(r, z0, seg = 48) {
+  const g = new THREE.SphereGeometry(r, seg, Math.max(8, seg >> 1), 0, Math.PI * 2, 0, Math.PI / 2);
+  g.rotateX(Math.PI / 2); g.translate(0, 0, z0); return g;
+}
+
+/* ============================================================
+   4) RASTERIZERS
+   ============================================================ */
+const MAX_CELLS = 1_600_000;
+
+function gridSize(wMM, hMM, ppmm) {
+  let cols = Math.round(wMM * ppmm) + 1, rows = Math.round(hMM * ppmm) + 1;
+  cols = clamp(cols, 8, 4000); rows = clamp(rows, 8, 4000);
+  if (cols * rows > MAX_CELLS) {
+    const s = Math.sqrt(MAX_CELLS / (cols * rows));
+    cols = Math.max(8, Math.floor(cols * s)); rows = Math.max(8, Math.floor(rows * s));
+  }
+  return { cols, rows };
+}
+function zeroBorder(a, cols, rows) {
+  for (let i = 0; i < cols; i++) { a[i] = 0; a[(rows - 1) * cols + i] = 0; }
+  for (let j = 0; j < rows; j++) { a[j * cols] = 0; a[j * cols + cols - 1] = 0; }
+}
+
+function textAlphaField(wMM, hMM, ppmm, lines, font, weight, sizeMM, align) {
+  const { cols, rows } = gridSize(wMM, hMM, ppmm);
+  const a = new Float32Array(cols * rows);
+  const L = lines.map(s => (s || '').trim()).filter(Boolean);
+  if (!L.length) return { cols, rows, alpha: a };
+
+  const cv = document.createElement('canvas'); cv.width = cols; cv.height = rows;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cols, rows);
+  ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+
+  const pxPerMM = cols / wMM;
+  const setF = (px) => ctx.font = `${weight} ${Math.max(4, px)}px "${font}","Noto Sans Thai",sans-serif`;
+  let fs = sizeMM * pxPerMM; setF(fs);
+
+  const marginPx = Math.max(2, 1.0 * pxPerMM);
+  const widest = Math.max(...L.map(s => ctx.measureText(s).width)) || 1;
+  const lh0 = fs * 1.28, totH = lh0 * L.length;
+  const sc = Math.min(1, (cols - marginPx * 2) / widest, (rows - marginPx * 1.4) / totH);
+  if (sc < 1) { fs *= sc; setF(fs); }
+
+  const lh = fs * 1.28, total = lh * L.length;
+  let y = rows / 2 - total / 2 + lh / 2;
+  for (const line of L) {
+    let x;
+    if (align === 'left') { ctx.textAlign = 'left'; x = marginPx; }
+    else if (align === 'right') { ctx.textAlign = 'right'; x = cols - marginPx; }
+    else { ctx.textAlign = 'center'; x = cols / 2; }
+    ctx.fillText(line, x, y); y += lh;
+  }
+
+  const d = ctx.getImageData(0, 0, cols, rows).data;
+  for (let j = 0; j < rows; j++) {
+    const src = (rows - 1 - j) * cols * 4;
+    for (let i = 0; i < cols; i++) {
+      const v = d[src + i * 4] / 255;
+      a[j * cols + i] = v <= 0 ? 0 : (v >= 1 ? 1 : smooth(0.32, 0.68, v));
+    }
+  }
+  zeroBorder(a, cols, rows);
+  return { cols, rows, alpha: a };
+}
+
+let IMG = null;
+function imageAlphaField(wMM, hMM, ppmm) {
+  if (!IMG) throw new Error(t('need.img'));
+  const { cols, rows } = gridSize(wMM, hMM, ppmm);
+  const cv = document.createElement('canvas'); cv.width = cols; cv.height = rows;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cols, rows);
+
+  const ir = IMG.width / IMG.height, fr = cols / rows;
+  let sw = IMG.width, sh = IMG.height, sx = 0, sy = 0;
+  if (ir > fr) { sw = IMG.height * fr; sx = (IMG.width - sw) / 2; }
+  else { sh = IMG.width / fr; sy = (IMG.height - sh) / 2; }
+
+  ctx.save();
+  if (bool('mirror')) { ctx.translate(cols, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(IMG, sx, sy, sw, sh, 0, 0, cols, rows);
+  ctx.restore();
+
+  const d = ctx.getImageData(0, 0, cols, rows).data;
+  const gm = num('gamma', 1, .4, 2.5);
+  const br = num('bright', 0, -100, 100) / 100;
+  const ct = num('contrast', 0, -100, 100) / 100;
+  const cf = (1.015 * (ct + 1)) / (1.0 * (1.015 - ct));
+  const inv = bool('invert');
+  const a = new Float32Array(cols * rows);
+
+  for (let j = 0; j < rows; j++) {
+    const src = (rows - 1 - j) * cols * 4;
+    for (let i = 0; i < cols; i++) {
+      const o = src + i * 4;
+      let L = (0.2126 * d[o] + 0.7152 * d[o + 1] + 0.0722 * d[o + 2]) / 255;
+      L = clamp(L + br, 0, 1);
+      L = clamp(cf * (L - 0.5) + 0.5, 0, 1);
+      L = Math.pow(L, 1 / gm);
+      if (inv) L = 1 - L;
+      a[j * cols + i] = clamp(L, 0, 1);
+    }
+  }
+  return { cols, rows, alpha: a };
+}
+
+/* ============================================================
+   5) MATERIALS
+   ============================================================ */
+function matSolid(hex = 0xdfe6f2) {
+  return new THREE.MeshStandardMaterial({ color: hex, roughness: .62, metalness: .04, side: THREE.DoubleSide, wireframe });
+}
+function matLitho() {
+  if (!backlitMode) return matSolid(0xf2f3f6);
+  return new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, roughness: .45, metalness: 0, transmission: .95, thickness: 2.2,
+    ior: 1.52, attenuationColor: new THREE.Color(0xffe9c8), attenuationDistance: 3.2,
+    side: THREE.DoubleSide, wireframe
+  });
+}
+function addMesh(group, geom, mat) {
+  const m = new THREE.Mesh(geom, mat); m.castShadow = m.receiveShadow = false; group.add(m); return m;
+}
+
+/* ============================================================
+   6) BUILDERS
+   ============================================================ */
+function buildLithoPanel(group, wMM, hMM, ppmm, minT, maxT, frame, centerX = 0, centerY = 0, baseZ = 0) {
+  const { cols, rows, alpha } = imageAlphaField(wMM, hMM, ppmm);
+  const field = new Float32Array(cols * rows);
+  const fpxX = frame > 0 ? Math.round(frame * (cols / wMM)) : 0;
+  const fpxY = frame > 0 ? Math.round(frame * (rows / hMM)) : 0;
+
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const k = j * cols + i;
+      const inFrame = i < fpxX || i >= cols - fpxX || j < fpxY || j >= rows - fpxY;
+      field[k] = baseZ + (inFrame ? maxT : minT + (1 - alpha[k]) * (maxT - minT));
+    }
+  }
+  const g = heightFieldSolid(field, cols, rows, wMM, hMM, baseZ);
+  g.translate(centerX, centerY, 0);
+  return { mesh: addMesh(group, g, matLitho()), cols, rows };
+}
+
+function buildTextPanel(group, wMM, hMM, ppmm, opts) {
+  const { cols, rows, alpha } = textAlphaField(
+    wMM, hMM, ppmm, opts.lines, opts.font, opts.weight, opts.size, opts.align);
+  const d = clamp(opts.depth, 0.2, 3);
+  // FIX #4: slab ต้องลึกพอสำหรับโหมดเซาะร่อง ไม่งั้นความลึกจริงถูกจำกัดที่ 0.55 mm เสมอ
+  const slab = Math.max(0.8, d + 0.3);
+  const top = opts.topZ, bottom = top - slab;
+  const field = new Float32Array(cols * rows);
+  if (opts.style === 'engraved') {
+    const dd = Math.min(d, slab - 0.25);
+    for (let k = 0; k < field.length; k++) field[k] = top - dd * alpha[k];
+  } else {
+    for (let k = 0; k < field.length; k++) field[k] = top + d * alpha[k];
+  }
+  const g = heightFieldSolid(field, cols, rows, wMM, hMM, bottom);
+  g.translate(opts.cx || 0, opts.cy || 0, 0);
+  return addMesh(group, g, matSolid(0xc9d3e6));
+}
+
+function buildNameTag(group) {
+  const W = num('pW', 75, 15, 250), H = num('pH', 28, 10, 250);
+  const T = num('pT', 2.4, .8, 10), R = clamp(num('pR', 4, 0, 30), 0, Math.min(W, H) / 2 - .5);
+  const holePos = str('pHole', 'none'), HD = num('pHD', 3.5, 1.5, 12);
+  const useBorder = bool('pBorder'), BW = num('pBW', 1.6, .4, 6);
+  const ppmm = clamp(num('lRes', 8, 3, 14) + 2, 5, 16);
+
+  const shape = roundedRectShape(W, H, R);
+  let holeCX = 0, holeCY = 0, holeR = 0;
+  if (holePos !== 'none') {
+    holeR = HD / 2;
+    const m = holeR + Math.max(2, R * .6);
+    if (holePos === 'left') { holeCX = -W / 2 + m; holeCY = 0; }
+    else { holeCX = 0; holeCY = H / 2 - m; }
+    shape.holes.push(circlePath(holeR, holeCX, holeCY));
+  }
+  addMesh(group, extrude(shape, T, 0, 48), matSolid(0xd6deee));
+
+  let inset = Math.max(R, 1.5);
+  if (useBorder) {
+    const fw = W - 2 * 1.2, fh = H - 2 * 1.2;
+    const ring = roundedRectShape(fw, fh, Math.max(0, R - 1.2));
+    ring.holes.push(roundedRectPath(fw - 2 * BW, fh - 2 * BW, Math.max(0, R - 1.2 - BW)));
+    addMesh(group, extrude(ring, 0.6, T, 48), matSolid(0xc9d3e6));
+    inset = Math.max(inset, 1.2 + BW + 0.8);
+  }
+
+  let px = -W / 2 + inset, py = -H / 2 + inset, pw = W - inset * 2, ph = H - inset * 2;
+  if (holePos === 'left') { const cut = (holeCX + holeR + 2.5) - px; px += cut; pw -= cut; }
+  if (holePos === 'top') { const cut = (py + ph) - (holeCY - holeR - 2.5); ph -= cut; }
+  pw = Math.max(6, pw); ph = Math.max(4, ph);
+
+  buildTextPanel(group, pw, ph, ppmm, {
+    lines: [str('tL1'), str('tL2')], font: str('tFont', 'Noto Sans Thai'), weight: str('tWeight', '600'),
+    size: num('tSize', 8, 2, 40), align: str('tAlign', 'center'), style: str('tStyle', 'raised'),
+    depth: num('tDepth', .8, .2, 3), topZ: T, cx: px + pw / 2, cy: py + ph / 2
+  });
+  return { w: W, h: H, t: T + (str('tStyle') === 'raised' ? num('tDepth', .8) : 0) };
+}
+
+function buildLithophane(group) {
+  const W = num('lW', 100, 10, 300), H = num('lH', 75, 10, 300);
+  const minT = num('lMin', .8, .2, 3);
+  const maxT = Math.max(minT + 0.3, num('lMax', 3, .6, 8));
+  const frame = num('lFrame', 2.5, 0, 15);
+  const ppmm = num('lRes', 8, 3, 14);
+  const curved = str('lShape', 'flat') === 'curved';
+
+  const { cols, rows, alpha } = imageAlphaField(W, H, ppmm);
+  const field = new Float32Array(cols * rows);
+  const fx = frame > 0 ? Math.max(1, Math.round(frame * (cols / W))) : 0;
+  const fy = frame > 0 ? Math.max(1, Math.round(frame * (rows / H))) : 0;
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const k = j * cols + i;
+    const inF = i < fx || i >= cols - fx || j < fy || j >= rows - fy;
+    field[k] = inF ? maxT : minT + (1 - alpha[k]) * (maxT - minT);
+  }
+  let g = heightFieldSolid(field, cols, rows, W, H, 0);
+
+  // FIX #6: ตำแหน่งห่วงแขวนต้องแยกตามโหมด
+  let ringY;
+  if (curved) {
+    const R = num('lRadius', 45, 15, 300);
+    const safeR = Math.max(R, W / (Math.PI * 1.9));
+    g = bendCylindrical(g, W, H, safeR);
+    ringY = maxT / 2;                        // จุดกึ่งกลางความหนาที่ x=0 ของทรงโค้ง
+  } else {
+    // FIX #1: เดิมใช้ -π/2 ทำให้ภาพกลับหัว (แกน Y ของภาพชี้ลง)
+    g.rotateX(Math.PI / 2); g.translate(0, 0, H / 2);
+    ringY = -maxT / 2;                       // หลังหมุน แผ่นอยู่ช่วง y ∈ [-maxT, 0]
+  }
+  addMesh(group, g, matLitho());
+
+  if (bool('lHole') && frame >= 3) {
+    const r = 5, hs = new THREE.Shape(); hs.absarc(0, 0, r, 0, Math.PI * 2, false);
+    hs.holes.push(circlePath(2.2));
+    const ring = extrude(hs, maxT, -maxT / 2, 32);
+    ring.rotateX(Math.PI / 2);
+    ring.translate(0, ringY, H + r * 0.7);
+    addMesh(group, ring, matSolid(0xd6deee));
+  }
+  return { w: W, h: H, t: maxT, cells: cols * rows };
+}
+
+function buildClicker(group, originX = 0, forCombo = false) {
+  const D = num('cDia', 32, 16, 90), H = num('cH', 14, 6, 45);
+  const wall = clamp(num('cWall', 2.4, 1, 6), 1, D / 4);
+  const tol = num('cTol', .3, .05, 1);
+  const bd = clamp(num('cBtn', 16, 6, 60), 4, D - wall * 2 - 3);
+  const domed = bool('cDome');
+  const laid = str('cLayout', 'flat') === 'flat';
+  const ro = D / 2, ri = ro - wall, base = Math.max(1.6, wall);
+  const gap = laid ? D * 0.62 : 0;
+
+  const body = new THREE.Group(); body.position.x = originX;
+  const ring = new THREE.Shape(); ring.absarc(0, 0, ro, 0, Math.PI * 2, false);
+  ring.holes.push(circlePath(ri));
+  addMesh(body, extrude(ring, H, 0, 72), matSolid(0xcfd9ec));
+  addMesh(body, cylinder(ro, base, 0), matSolid(0xcfd9ec));
+  const lipS = new THREE.Shape(); lipS.absarc(0, 0, ri, 0, Math.PI * 2, false);
+  lipS.holes.push(circlePath(ri - 1.2));
+  addMesh(body, extrude(lipS, 1.2, H - 2.6, 72), matSolid(0xbcc8df));
+
+  if (!forCombo && bool('cEar')) {
+    const ew = D * .55, eh = D * .34;
+    const ear = roundedRectShape(ew, eh, eh / 2.4);
+    ear.holes.push(circlePath(2.2, ew / 2 - 5, 0));
+    const eg = extrude(ear, Math.max(2.4, base), 0, 32);
+    eg.translate(-ro - ew / 2 + wall * 1.2, 0, 0);
+    addMesh(body, eg, matSolid(0xcfd9ec));
+  }
+  group.add(body);
+
+  const cap = new THREE.Group(); cap.position.set(originX + gap, 0, 0);
+  const capT = Math.max(1.8, wall * .9);
+  const cs = new THREE.Shape(); cs.absarc(0, 0, ro, 0, Math.PI * 2, false);
+  cs.holes.push(circlePath(bd / 2 + tol));
+  addMesh(cap, extrude(cs, capT, laid ? 0 : H, 72), matSolid(0xc3cfe6));
+  const bossS = new THREE.Shape(); bossS.absarc(0, 0, ri - tol, 0, Math.PI * 2, false);
+  bossS.holes.push(circlePath(bd / 2 + tol + 1.2));
+  addMesh(cap, extrude(bossS, 2.2, laid ? capT : H - 2.2, 72), matSolid(0xb6c3dd));
+  group.add(cap);
+
+  const btn = new THREE.Group(); btn.position.set(originX + gap * 2, 0, 0);
+  const shaft = H * .62, flangeR = Math.min(ri - tol - .6, bd / 2 + 3);
+  addMesh(btn, cylinder(flangeR, 2.2, 0), matSolid(0xa9b8d6));
+  addMesh(btn, cylinder(bd / 2, shaft, 2.2), matSolid(0xa9b8d6));
+  if (domed) addMesh(btn, dome(bd / 2, 2.2 + shaft), matSolid(0xa9b8d6));
+  else addMesh(btn, cylinder(bd / 2, 1.6, 2.2 + shaft), matSolid(0xa9b8d6));
+  group.add(btn);
+
+  return { w: laid ? D + gap * 2 : D, h: D, t: H };
+}
+
+function buildCombo(group) {
+  const W = num('kW', 72, 30, 250), H = num('kH', 96, 40, 250);
+  const f = clamp(num('kFrame', 5, 2, 20), 2, Math.min(W, H) / 5);
+  const strip = clamp(num('kStrip', 18, 8, 60), 8, H - f * 3 - 12);
+  const minT = num('lMin', .8, .2, 3);
+  const maxT = Math.max(minT + .3, num('lMax', 3, .6, 8));
+  const T = Math.max(num('pT', 2.4, .8, 10), maxT + .6);
+  const R = 4, ppmm = num('lRes', 8, 3, 14);
+
+  const winW = W - 2 * f;
+  const winH = H - strip - 3 * f;
+  const winCY = H / 2 - f - winH / 2;
+
+  const shape = roundedRectShape(W, H, R);
+  shape.holes.push(roundedRectPath(winW, winH, 2, 0, winCY));
+  if (bool('kHole')) shape.holes.push(circlePath(2, -W / 2 + f / 2 + 1.2, H / 2 - f / 2 - 1.2));
+  addMesh(group, extrude(shape, T, 0, 48), matSolid(0xd6deee));
+
+  buildLithoPanel(group, winW + 1.6, winH + 1.6, ppmm, minT, maxT, 0.8, 0, winCY, 0);
+
+  const tw = W - 2 * f, th = strip - f * .4;
+  buildTextPanel(group, tw, th, clamp(ppmm + 2, 5, 16), {
+    lines: [str('tL1'), str('tL2')], font: str('tFont', 'Noto Sans Thai'), weight: str('tWeight', '600'),
+    size: num('tSize', 8, 2, 40), align: str('tAlign', 'center'), style: str('tStyle', 'raised'),
+    depth: num('tDepth', .8, .2, 3), topZ: T, cx: 0, cy: -H / 2 + f * .5 + th / 2
+  });
+
+  let total = W;
+  if (bool('kClicker')) { const c = buildClicker(group, W / 2 + num('cDia', 32) * .75 + 10, true); total = W + c.w + 20; }
+  return { w: total, h: H, t: T + num('tDepth', .8) };
+}
+
+/* ============================================================
+   7) BUILD PIPELINE
+   ============================================================ */
+let MODE = 'litho', building = false, buildTimer = null;
+
+function disposeGroup(g) {
+  g.traverse(o => {
+    if (o.isMesh) { o.geometry?.dispose?.(); if (Array.isArray(o.material)) o.material.forEach(m => m.dispose()); else o.material?.dispose?.(); }
+  });
+  g.clear();
+}
+function countTris(root) {
+  let n = 0;
+  root.traverse(o => { if (o.isMesh) { const g = o.geometry; n += g.index ? g.index.count / 3 : g.attributes.position.count / 3; } });
+  return Math.round(n);
+}
+function setStatus(txt, kind = '') { const b = $('bStatus'); b.textContent = txt; b.className = 'badge ' + kind; }
+
+async function build(refit = false) {
+  if (building) return; building = true;
+  $('loading').classList.add('on');
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const t0 = performance.now();
+  try {
+    if ((MODE === 'litho' || MODE === 'combo') && !IMG) {
+      disposeGroup(modelGroup);
+      setStatus(t('need.img'), 'err'); $('bDim').textContent = '—'; $('bTri').textContent = '—';
+      return;
+    }
+    try { await document.fonts.load(`${str('tWeight', '600')} 40px "${str('tFont', 'Noto Sans Thai')}"`); } catch (_) {}
+
+    disposeGroup(modelGroup);
+    if (MODE === 'litho') buildLithophane(modelGroup);
+    else if (MODE === 'tag') buildNameTag(modelGroup);
+    else if (MODE === 'clicker') buildClicker(modelGroup, 0, false);
+    else buildCombo(modelGroup);
+
+    const box = new THREE.Box3().setFromObject(modelGroup);
+    const s = box.getSize(new THREE.Vector3());
+    const tris = countTris(modelGroup);
+    $('bDim').textContent = `${s.x.toFixed(1)} × ${s.y.toFixed(1)} × ${s.z.toFixed(1)} mm`;
+    $('bTri').textContent = `${tris.toLocaleString()} tris`;
+    $('bDim').className = $('bTri').className = 'badge';
+    setStatus(`${t('ok.built')} · ${Math.round(performance.now() - t0)} ms`, 'ok');
+    if (tris > 900000) toast(t('warn.tri'), 'warn');
+    if (refit) fitView();
+  } catch (err) {
+    console.error(err);
+    setStatus(t('err.build') + (err?.message || err), 'err');
+    toast(t('err.build') + (err?.message || err), 'err');
+  } finally {
+    building = false; $('loading').classList.remove('on');
+  }
+}
+const rebuild = (refit = false) => { clearTimeout(buildTimer); buildTimer = setTimeout(() => build(refit), 220); };
+
+/* ============================================================
+   8) STL EXPORT
+   ============================================================ */
+function exportSTL() {
+  if (!modelGroup.children.length) { toast(t('need.img'), 'err'); return; }
+  modelGroup.updateMatrixWorld(true);
+  const meshes = []; modelGroup.traverse(o => { if (o.isMesh && o.visible) meshes.push(o); });
+
+  let total = 0;
+  for (const m of meshes) { const g = m.geometry; total += (g.index ? g.index.count : g.attributes.position.count) / 3; }
+  total = Math.floor(total);
+  if (total < 1) { toast('Empty model', 'err'); return; }
+
+  const buf = new ArrayBuffer(84 + total * 50), dv = new DataView(buf);
+  new TextEncoder().encodeInto('MakerStudio3D binary STL - units: mm', new Uint8Array(buf, 0, 80));
+  dv.setUint32(80, total, true);
+
+  let off = 84;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ab = new THREE.Vector3(), cb = new THREE.Vector3(), n = new THREE.Vector3();
+
+  for (const m of meshes) {
+    const g = m.geometry, p = g.attributes.position, idx = g.index;
+    const mw = m.matrixWorld;
+    const cnt = idx ? idx.count : p.count;
+    for (let i = 0; i < cnt; i += 3) {
+      const i0 = idx ? idx.getX(i) : i, i1 = idx ? idx.getX(i + 1) : i + 1, i2 = idx ? idx.getX(i + 2) : i + 2;
+      a.fromBufferAttribute(p, i0).applyMatrix4(mw);
+      b.fromBufferAttribute(p, i1).applyMatrix4(mw);
+      c.fromBufferAttribute(p, i2).applyMatrix4(mw);
+      cb.subVectors(c, b); ab.subVectors(a, b); n.crossVectors(cb, ab);
+      if (n.lengthSq() > 1e-20) n.normalize(); else n.set(0, 0, 1);
+      dv.setFloat32(off, n.x, true); dv.setFloat32(off + 4, n.y, true); dv.setFloat32(off + 8, n.z, true);
+      dv.setFloat32(off + 12, a.x, true); dv.setFloat32(off + 16, a.y, true); dv.setFloat32(off + 20, a.z, true);
+      dv.setFloat32(off + 24, b.x, true); dv.setFloat32(off + 28, b.y, true); dv.setFloat32(off + 32, b.z, true);
+      dv.setFloat32(off + 36, c.x, true); dv.setFloat32(off + 40, c.y, true); dv.setFloat32(off + 44, c.z, true);
+      dv.setUint16(off + 48, 0, true); off += 50;
+    }
+  }
+  const url = URL.createObjectURL(new Blob([buf], { type: 'model/stl' }));
+  const a2 = document.createElement('a');
+  a2.href = url; a2.download = `makerstudio-${MODE}-${Date.now()}.stl`;
+  document.body.appendChild(a2); a2.click(); a2.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast(`${t('ok.stl')} · ${total.toLocaleString()} tris`, 'ok');
+}
+
+/* ============================================================
+   9) UI WIRING
+   ============================================================ */
+function applyModeVisibility() {
+  $('#sidebar [data-for]').forEach(el => {
+    el.style.display = el.dataset.for.split(/\s+/).includes(MODE) ? '' : 'none';
+  });
+  $('#sidebar [data-for-only]').forEach(el => { el.style.display = el.dataset.forOnly === MODE ? '' : 'none'; });
+  applyConditionals();
+}
+function applyConditionals() {
+  $('#sidebar [data-when]').forEach(el => {
+    const expr = el.dataset.when;
+    const neg = expr.includes('!=');
+    // FIX #2: ต้องจับ "!=" ก่อน "=" ไม่งั้น "pHole!=none" ถูกตัดเป็น id "pHole!"
+    const [id, val] = expr.split(/(?:!=|=)/);
+    const src = $(id.trim()); if (!src) return;
+    const cur = src.type === 'checkbox' ? (src.checked ? '1' : '0') : src.value;
+    const match = cur === val.trim();
+    el.style.display = (neg ? !match : match) ? '' : 'none';
+  });
+}
+$('#modes .mode-btn').forEach(btn => btn.onclick = () => {
+  $('#modes .mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); MODE = btn.dataset.mode;
+  applyModeVisibility(); build(true);
+});
+
+const liveLabel = (id, fmt) => { const el = $(id), out = $(id + 'V'); if (el && out) { const u = () => out.textContent = fmt(el.value); el.addEventListener('input', u); u(); } };
+liveLabel('gamma', v => (+v).toFixed(2)); liveLabel('bright', v => v); liveLabel('contrast', v => v); liveLabel('lRes', v => v);
+
+$('#sidebar input, #sidebar select, #sidebar textarea').forEach(el => {
+  const ev = (el.type === 'range' || el.type === 'text') ? 'input' : 'change';
+  el.addEventListener(ev, () => { applyConditionals(); rebuild(false); });
+  if (el.type === 'range') el.addEventListener('change', () => rebuild(false));
+});
+
+/* ---------- Image loading ---------- */
+let THUMB_URL = null;   // FIX #5: เก็บ URL เดิมไว้ปล่อยคืนหน่วยความจำ
+function loadImageFile(file) {
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { toast(t('err.img'), 'err'); return; }
+  if (file.size > 30 * 1024 * 1024) { toast(t('err.img'), 'err'); return; }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    IMG = img;
+    if (THUMB_URL) URL.revokeObjectURL(THUMB_URL);   // FIX #5
+    THUMB_URL = url;
+    $('thumb').hidden = false; $('thumbImg').src = url;
+    $('thumbMeta').textContent = `${file.name} — ${img.width}×${img.height}px`;
+    if (MODE === 'litho') {
+      const W = num('lW', 100, 10, 300);
+      $('lH').value = clamp(Math.round(W * img.height / img.width), 10, 300);
+    }
+    toast(t('ok.img'), 'ok'); build(true);
+  };
+  img.onerror = () => { toast(t('err.img'), 'err'); URL.revokeObjectURL(url); };
+  img.src = url;
+}
+$('drop').onclick = () => $('file').click();
+$('file').onchange = e => loadImageFile(e.target.files[0]);
+['dragenter', 'dragover'].forEach(k => $('drop').addEventListener(k, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(k => $('drop').addEventListener(k, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', e => loadImageFile(e.dataTransfer?.files?.[0]));
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+/* ---------- Buttons ---------- */
+$('lFit').onclick = () => {
+  if (!IMG) { toast(t('need.img'), 'err'); return; }
+  $('lH').value = clamp(Math.round(num('lW', 100, 10, 300) * IMG.height / IMG.width), 10, 300); build(true);
+};
+$('pAuto').onclick = () => {
+  const lines = [str('tL1'), str('tL2')].filter(s => s.trim());
+  const sz = num('tSize', 8, 2, 40);
+  const cv = document.createElement('canvas').getContext('2d');
+  cv.font = `${str('tWeight', '600')} 100px "${str('tFont')}","Noto Sans Thai",sans-serif`;
+  const widest = Math.max(1, ...lines.map(s => cv.measureText(s).width)) / 100 * sz;
+  $('pW').value = clamp(Math.ceil(widest + 14), 15, 250);
+  $('pH').value = clamp(Math.ceil(sz * 1.35 * Math.max(1, lines.length) + 10), 10, 250);
+  build(true);
+};
+$('btnRegen').onclick = () => build(true);
+$('btnSTL').onclick = () => { try { exportSTL(); } catch (e) { console.error(e); toast('Export error: ' + e.message, 'err'); } };
+$('vFit').onclick = () => fitView();
+$('vRotate').onclick = e => { autoRotate = !autoRotate; e.currentTarget.classList.toggle('on', autoRotate); };
+$('vGrid').onclick = e => { grid.visible = !grid.visible; e.currentTarget.classList.toggle('on', !grid.visible); };
+$('vWire').onclick = e => {
+  wireframe = !wireframe; e.currentTarget.classList.toggle('on', wireframe);
+  modelGroup.traverse(o => { if (o.isMesh) o.material.wireframe = wireframe; });
+};
+$('vLight').onclick = e => {
+  backlitMode = !backlitMode; e.currentTarget.classList.toggle('on', backlitMode);
+  backLight.intensity = backlitMode ? 6 : 0;
+  scene.background = new THREE.Color(backlitMode ? 0x05070d : (document.documentElement.dataset.theme === 'dark' ? 0x0a1020 : 0xe9eef7));
+  build(false);
+};
+
+/* ---------- Self-test ---------- */
+$('btnTest').onclick = () => {
+  const res = [];
+  const ok = (c, m) => res.push(`${c ? '✅' : '❌'} ${m}`);
+  ok(!!renderer, 'WebGL renderer');
+  ok(renderer.capabilities.isWebGL2, 'WebGL 2 (transmission preview)');
+  ok(document.fonts.check(`600 20px "${str('tFont')}"`), `Font: ${str('tFont')}`);
+  ok(modelGroup.children.length > 0, `Meshes: ${modelGroup.children.length}`);
+
+  let nan = 0, tris = 0, deg = 0;
+  modelGroup.traverse(o => {
+    if (!o.isMesh) return;
+    const p = o.geometry.attributes.position.array;
+    for (let i = 0; i < p.length; i++) if (!isFinite(p[i])) nan++;
+    const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3;
+    g.computeBoundingBox(); const s = g.boundingBox.getSize(new THREE.Vector3());
+    if (s.x < 1e-4 || s.y < 1e-4 || s.z < 1e-4) deg++;
+  });
+  ok(nan === 0, `ค่าพิกัด NaN/Infinity: ${nan}`);
+  ok(deg === 0, `ชิ้นส่วนความหนาเป็นศูนย์: ${deg}`);
+  ok(tris > 0 && tris < 2_000_000, `Triangles: ${Math.round(tris).toLocaleString()}`);
+  const box = new THREE.Box3().setFromObject(modelGroup), sz = box.getSize(new THREE.Vector3());
+  ok(sz.z > 0.4, `ความหนารวม ${sz.z.toFixed(2)} mm`);
+  ok(sz.x < 300 && sz.y < 300, `ขนาดเข้าเครื่องพิมพ์ทั่วไป (${sz.x.toFixed(0)}×${sz.y.toFixed(0)} mm)`);
+
+  const failed = res.filter(r => r.startsWith('❌')).length;
+  $('diag').innerHTML = res.join('<br>');
+  toast(failed ? `${t('test.fail')} (${failed})` : t('test.pass'), failed ? 'warn' : 'ok');
+};
+
+/* ---------- Keyboard ---------- */
+addEventListener('keydown', e => {
+  if (e.target.matches('input,select,textarea')) return;
+  if (e.key === 'f') fitView();
+  if (e.key === 'r') build(true);
+  if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); exportSTL(); }
+});
+
+/* ============================================================
+   10) BOOT
+   ============================================================ */
+try {
+  applyLang(); applyTheme(theme);
+  initViewer(); applyModeVisibility();
+  window.__READY__ = true;
+  build(true);
+  setStatus(t('need.img'));
+} catch (e) {
+  console.error(e);
+  document.getElementById('fatal').classList.add('on');
+}
+</script>
+</body>
+</html>
