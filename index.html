@@ -26,7 +26,6 @@
   --r:14px; --r-sm:10px; --vp-1:#dfe7f2; --vp-2:#f7f9fc;
 }
 html[data-theme="dark"]{
-  /* FIX #3: ลบค่าสีที่ไม่ valid ออก (เดิมคือ --inset:#0c1striped;) */
   --bg:#070b16; --bg-2:#0c1222; --panel:#111a2e; --panel-2:#16203a;
   --inset:#0d1526; --text:#e9eefb; --muted:#93a3c0; --border:#233252;
   --accent:#6d6bf6; --accent-2:#22d3ee; --accent-ink:#ffffff;
@@ -352,7 +351,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
    0) UTIL
    ============================================================ */
 const $  = (id) => document.getElementById(id);
-const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0 || 1e-6), 0, 1); return t * t * (3 - 2 * t); };
 
@@ -428,11 +427,11 @@ const t = (k) => (I18N[LANG] && I18N[LANG][k]) || (I18N.th[k]) || k;
 
 function applyLang() {
   document.documentElement.lang = LANG;
-  $('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
-  $('#langSeg button').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
+  $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$('#langSeg button').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
   localStorage.setItem('ms3d.lang', LANG);
 }
-$('#langSeg button').forEach(b => b.onclick = () => { LANG = b.dataset.lang; applyLang(); });
+$$('#langSeg button').forEach(b => b.onclick = () => { LANG = b.dataset.lang; applyLang(); });
 
 /* ---------- Theme ---------- */
 function applyTheme(mode) {
@@ -766,7 +765,6 @@ function buildTextPanel(group, wMM, hMM, ppmm, opts) {
   const { cols, rows, alpha } = textAlphaField(
     wMM, hMM, ppmm, opts.lines, opts.font, opts.weight, opts.size, opts.align);
   const d = clamp(opts.depth, 0.2, 3);
-  // FIX #4: slab ต้องลึกพอสำหรับโหมดเซาะร่อง ไม่งั้นความลึกจริงถูกจำกัดที่ 0.55 mm เสมอ
   const slab = Math.max(0.8, d + 0.3);
   const top = opts.topZ, bottom = top - slab;
   const field = new Float32Array(cols * rows);
@@ -840,17 +838,15 @@ function buildLithophane(group) {
   }
   let g = heightFieldSolid(field, cols, rows, W, H, 0);
 
-  // FIX #6: ตำแหน่งห่วงแขวนต้องแยกตามโหมด
   let ringY;
   if (curved) {
     const R = num('lRadius', 45, 15, 300);
     const safeR = Math.max(R, W / (Math.PI * 1.9));
     g = bendCylindrical(g, W, H, safeR);
-    ringY = maxT / 2;                        // จุดกึ่งกลางความหนาที่ x=0 ของทรงโค้ง
+    ringY = maxT / 2;
   } else {
-    // FIX #1: เดิมใช้ -π/2 ทำให้ภาพกลับหัว (แกน Y ของภาพชี้ลง)
     g.rotateX(Math.PI / 2); g.translate(0, 0, H / 2);
-    ringY = -maxT / 2;                       // หลังหมุน แผ่นอยู่ช่วง y ∈ [-maxT, 0]
+    ringY = -maxT / 2;
   }
   addMesh(group, g, matLitho());
 
@@ -1054,17 +1050,16 @@ function exportSTL() {
    9) UI WIRING
    ============================================================ */
 function applyModeVisibility() {
-  $('#sidebar [data-for]').forEach(el => {
+  $$('#sidebar [data-for]').forEach(el => {
     el.style.display = el.dataset.for.split(/\s+/).includes(MODE) ? '' : 'none';
   });
-  $('#sidebar [data-for-only]').forEach(el => { el.style.display = el.dataset.forOnly === MODE ? '' : 'none'; });
+  $$('#sidebar [data-for-only]').forEach(el => { el.style.display = el.dataset.forOnly === MODE ? '' : 'none'; });
   applyConditionals();
 }
 function applyConditionals() {
-  $('#sidebar [data-when]').forEach(el => {
+  $$('#sidebar [data-when]').forEach(el => {
     const expr = el.dataset.when;
     const neg = expr.includes('!=');
-    // FIX #2: ต้องจับ "!=" ก่อน "=" ไม่งั้น "pHole!=none" ถูกตัดเป็น id "pHole!"
     const [id, val] = expr.split(/(?:!=|=)/);
     const src = $(id.trim()); if (!src) return;
     const cur = src.type === 'checkbox' ? (src.checked ? '1' : '0') : src.value;
@@ -1072,8 +1067,8 @@ function applyConditionals() {
     el.style.display = (neg ? !match : match) ? '' : 'none';
   });
 }
-$('#modes .mode-btn').forEach(btn => btn.onclick = () => {
-  $('#modes .mode-btn').forEach(b => b.classList.remove('active'));
+$$('#modes .mode-btn').forEach(btn => btn.onclick = () => {
+  $$('#modes .mode-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active'); MODE = btn.dataset.mode;
   applyModeVisibility(); build(true);
 });
@@ -1081,14 +1076,14 @@ $('#modes .mode-btn').forEach(btn => btn.onclick = () => {
 const liveLabel = (id, fmt) => { const el = $(id), out = $(id + 'V'); if (el && out) { const u = () => out.textContent = fmt(el.value); el.addEventListener('input', u); u(); } };
 liveLabel('gamma', v => (+v).toFixed(2)); liveLabel('bright', v => v); liveLabel('contrast', v => v); liveLabel('lRes', v => v);
 
-$('#sidebar input, #sidebar select, #sidebar textarea').forEach(el => {
+$$('#sidebar input, #sidebar select, #sidebar textarea').forEach(el => {
   const ev = (el.type === 'range' || el.type === 'text') ? 'input' : 'change';
   el.addEventListener(ev, () => { applyConditionals(); rebuild(false); });
   if (el.type === 'range') el.addEventListener('change', () => rebuild(false));
 });
 
 /* ---------- Image loading ---------- */
-let THUMB_URL = null;   // FIX #5: เก็บ URL เดิมไว้ปล่อยคืนหน่วยความจำ
+let THUMB_URL = null;
 function loadImageFile(file) {
   if (!file) return;
   if (!/^image\//.test(file.type)) { toast(t('err.img'), 'err'); return; }
@@ -1097,7 +1092,7 @@ function loadImageFile(file) {
   const img = new Image();
   img.onload = () => {
     IMG = img;
-    if (THUMB_URL) URL.revokeObjectURL(THUMB_URL);   // FIX #5
+    if (THUMB_URL) URL.revokeObjectURL(THUMB_URL);
     THUMB_URL = url;
     $('thumb').hidden = false; $('thumbImg').src = url;
     $('thumbMeta').textContent = `${file.name} — ${img.width}×${img.height}px`;
